@@ -108,7 +108,7 @@ banner "PHASE 3 — Downloading NixOS modules"
 
 sudo mkdir -p "${MODULES_DEST}" "${MODELFILES_DEST}" "${SCRIPTS_DEST}"
 
-NixOS_MODULES=(nvidia.nix ollama.nix open-webui.nix llm-lab.nix)
+NixOS_MODULES=(nvidia.nix ollama.nix open-webui.nix llm-lab.nix playwright.nix)
 for f in "${NixOS_MODULES[@]}"; do
     info "modules/${f}"
     curl -sf "${BASE_URL}/modules/${f}" | sudo tee "${MODULES_DEST}/${f}" > /dev/null
