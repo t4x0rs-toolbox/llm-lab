@@ -23,6 +23,13 @@ in
       CHUNK_SIZE    = "1500";
       CHUNK_OVERLAP = "200";
 
+      # Web search via DuckDuckGo (no API key needed)
+      ENABLE_RAG_WEB_SEARCH    = "True";
+      RAG_WEB_SEARCH_ENGINE    = "duckduckgo";
+      RAG_WEB_SEARCH_RESULT_COUNT = "5";
+      RAG_WEB_SEARCH_CONCURRENT_REQUESTS = "10";
+
+      # URL attachment fetching via playwright (for JS-rendered pages)
       WEB_LOADER_ENGINE = "playwright";
       PLAYWRIGHT_WS_URL = "ws://127.0.0.1:13000";
 
