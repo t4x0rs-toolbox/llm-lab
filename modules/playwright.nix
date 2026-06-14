@@ -15,7 +15,7 @@
     };
 
     serviceConfig = {
-      ExecStart = "${pkgs.playwright-driver}/bin/playwright run-server --port 3000 --host 127.0.0.1";
+      ExecStart = "${pkgs.nodejs}/bin/node ${pkgs.playwright-driver}/bin/playwright run-server --port 3000 --host 127.0.0.1";
       Restart   = "on-failure";
       User      = "t4x0r";
     };
