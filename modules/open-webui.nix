@@ -3,7 +3,7 @@
 let
   # open-webui's bundled Python env doesn't include playwright.
   # Inject it via PYTHONPATH so langchain_community can import it.
-  pythonWithPlaywright = pkgs.python3.withPackages (ps: [ ps.playwright ]);
+  pythonWithPlaywright = pkgs.python3.withPackages (ps: [ ps.playwright ps.unstructured ]);
 in
 {
   services.open-webui = {
