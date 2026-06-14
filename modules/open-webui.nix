@@ -18,6 +18,9 @@
 
       CHUNK_SIZE    = "1500";
       CHUNK_OVERLAP = "200";
+
+      # Use playwright for JS-rendered pages (React SPAs like HackerOne)
+      WEB_LOADER_ENGINE = "playwright";
     };
   };
 }
