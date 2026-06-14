@@ -20,7 +20,7 @@
       CHUNK_OVERLAP = "200";
 
       WEB_LOADER_ENGINE          = "playwright";
-      PLAYWRIGHT_WS_URL          = "ws://127.0.0.1:3000";
+      PLAYWRIGHT_WS_URL          = "ws://127.0.0.1:13000";
     };
   };
 }
