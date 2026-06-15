@@ -34,7 +34,8 @@ in
       PLAYWRIGHT_WS_URL = "ws://127.0.0.1:13000";
 
       # Make playwright importable inside open-webui's Python process
-      PYTHONPATH                   = "${pythonWithPlaywright}/lib/python3.13/site-packages";
+      # Use pythonWithPlaywright.python.libPrefix so the version (e.g. python3.12) is resolved dynamically
+      PYTHONPATH                   = "${pythonWithPlaywright}/lib/${pythonWithPlaywright.python.libPrefix}/site-packages";
       PLAYWRIGHT_BROWSERS_PATH     = "${pkgs.playwright-driver.browsers}";
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
     };
