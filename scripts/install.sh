@@ -115,19 +115,29 @@ for f in "${NixOS_MODULES[@]}"; do
     ok "  → ${MODULES_DEST}/${f}"
 done
 
-MODELFILES=(offsec.Modelfile roleplay.Modelfile phi4.Modelfile gemma4.Modelfile)
+MODELFILES=(offsec.Modelfile roleplay.Modelfile phi4.Modelfile gemma4.Modelfile qwen3.Modelfile)
 for f in "${MODELFILES[@]}"; do
     info "modelfiles/${f}"
     curl -sf "${BASE_URL}/modelfiles/${f}" | sudo tee "${MODELFILES_DEST}/${f}" > /dev/null
     ok "  → ${MODELFILES_DEST}/${f}"
 done
 
-SCRIPTS=(setup-models.sh start.sh)
+SCRIPTS=(setup-models.sh setup-openwebui.sh start.sh)
 for f in "${SCRIPTS[@]}"; do
     info "scripts/${f}"
     curl -sf "${BASE_URL}/scripts/${f}" | sudo tee "${SCRIPTS_DEST}/${f}" > /dev/null
     sudo chmod +x "${SCRIPTS_DEST}/${f}"
     ok "  → ${SCRIPTS_DEST}/${f}"
+done
+
+# Open WebUI filter and model definitions
+OPENWEBUI_DEST="${NIXOS_DIR}/openwebui"
+sudo mkdir -p "${OPENWEBUI_DEST}"
+OPENWEBUI_FILES=(url-fetcher-filter.py)
+for f in "${OPENWEBUI_FILES[@]}"; do
+    info "openwebui/${f}"
+    curl -sf "${BASE_URL}/openwebui/${f}" | sudo tee "${OPENWEBUI_DEST}/${f}" > /dev/null
+    ok "  → ${OPENWEBUI_DEST}/${f}"
 done
 
 # ── Phase 4: Patch /etc/nixos/configuration.nix ──────────────────────────────
@@ -195,13 +205,30 @@ fi
 
 ok "Home Manager updated"
 
-# ── Phase 8: Pull models — SKIPPED (pull manually after install) ──────────────
+# ── Phase 8: Pull models ──────────────────────────────────────────────────────
 banner "PHASE 8 — Models"
-warn "Skipping model download. Pull manually once Ollama is running:"
-echo -e "  ${C}OLLAMA_HOST=http://127.0.0.1:${OLLAMA_PORT} ollama pull gemma4:12b${N}"
-echo -e "  ${C}OLLAMA_HOST=http://127.0.0.1:${OLLAMA_PORT} ollama pull qwen2.5-coder:14b${N}"
-echo -e "  ${C}OLLAMA_HOST=http://127.0.0.1:${OLLAMA_PORT} ollama pull mistral-nemo:12b${N}"
-echo -e "  ${C}OLLAMA_HOST=http://127.0.0.1:${OLLAMA_PORT} ollama pull phi4:14b${N}"
+info "Waiting for Ollama to be ready..."
+until curl -sf "http://127.0.0.1:${OLLAMA_PORT}/" >/dev/null 2>&1; do sleep 3; done
+ok "Ollama is up"
+
+info "Pulling nomic-embed-text (~274 MB) — required for RAG..."
+OLLAMA_HOST="http://127.0.0.1:${OLLAMA_PORT}" ollama pull nomic-embed-text
+ok "nomic-embed-text ready"
+
+info "Running setup-models.sh (pulls base models + creates personas)..."
+OLLAMA_HOST="http://127.0.0.1:${OLLAMA_PORT}" bash "${SCRIPTS_DEST}/setup-models.sh"
+
+# ── Phase 9: Configure Open WebUI ────────────────────────────────────────────
+banner "PHASE 9 — Open WebUI configuration"
+info "Deploying URL Fetcher Filter and qwen3-sec workspace model..."
+
+info "Waiting for Open WebUI to be ready..."
+until curl -sf --connect-timeout 3 "http://127.0.0.1:${WEBUI_PORT}/api/version" >/dev/null 2>&1; do
+    sleep 3
+done
+ok "Open WebUI is up"
+
+bash "${SCRIPTS_DEST}/setup-openwebui.sh" "${KALI_IP}" "${WEBUI_PORT}"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 banner "INSTALLATION COMPLETE"
@@ -209,14 +236,14 @@ echo ""
 echo -e "  ${B}Open WebUI${N}   →  ${C}http://localhost:${WEBUI_PORT}${N}"
 echo -e "  ${B}Ollama API${N}   →  ${C}http://localhost:${OLLAMA_PORT}${N}"
 echo ""
+echo -e "  ${B}Web UI:${N}  ${C}http://localhost:${WEBUI_PORT}${N}"
+echo -e "  ${B}Model:${N}   select ${C}qwen3-sec${N} for live browsing + offsec persona"
+echo ""
 echo -e "  ${B}Quick start (after reboot):${N}"
 echo -e "    ${C}bash ${SCRIPTS_DEST}/start.sh${N}"
 echo ""
-echo -e "  ${B}Terminal shortcuts (after hm switch takes effect):${N}"
-echo -e "    llm-sec     →  offsec persona    (qwen2.5-coder:14b)"
-echo -e "    llm-analyst →  analyst persona   (phi4:14b)"
-echo -e "    llm-rp      →  roleplay persona  (mistral-nemo:12b)"
-echo -e "    llm-assist  →  general assistant (gemma3:12b)"
+echo -e "  ${B}Fetch proxy (must run on Kali):${N}"
+echo -e "    ${C}systemctl --user status llm-fetch-proxy${N}"
 echo ""
 warn "Reboot recommended — NVIDIA kernel module needs it to become active."
 warn "After reboot, CUDA acceleration will kick in automatically."

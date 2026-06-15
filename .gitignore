@@ -1,3 +1,5 @@
 .playwright-mcp/
 *.bak
 *.bak.*
+__pycache__/
+*.pyc

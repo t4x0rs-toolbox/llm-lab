@@ -104,11 +104,13 @@ ok "Channels updated"
 
 # ── 3. Copy files into /etc/nixos/ ────────────────────────────────────────────
 info "Copying modules..."
-mkdir -p "$NIXOS_DIR/modules" "$NIXOS_DIR/modelfiles" "$NIXOS_DIR/scripts"
+mkdir -p "$NIXOS_DIR/modules" "$NIXOS_DIR/modelfiles" "$NIXOS_DIR/scripts" "$NIXOS_DIR/openwebui"
 
-cp -v "$REPO_DIR"/modules/*.nix     "$NIXOS_DIR/modules/"
-cp -v "$REPO_DIR"/modelfiles/*      "$NIXOS_DIR/modelfiles/"
-cp -v "$REPO_DIR"/scripts/*.sh      "$NIXOS_DIR/scripts/"
+cp -v "$REPO_DIR"/modules/*.nix      "$NIXOS_DIR/modules/"
+cp -v "$REPO_DIR"/modelfiles/*       "$NIXOS_DIR/modelfiles/"
+cp -v "$REPO_DIR"/scripts/*.sh       "$NIXOS_DIR/scripts/"
+cp -v "$REPO_DIR"/scripts/*.py       "$NIXOS_DIR/scripts/" 2>/dev/null || true
+cp -v "$REPO_DIR"/openwebui/*        "$NIXOS_DIR/openwebui/"
 chmod +x "$NIXOS_DIR"/scripts/*.sh
 ok "Files copied"
 
@@ -196,8 +198,25 @@ ok "Ollama is up"
 info "Pulling embedding model (nomic-embed-text, ~274 MB)..."
 OLLAMA_HOST="http://127.0.0.1:$OLLAMA_PORT" ollama pull nomic-embed-text
 
-info "Running setup-models.sh (pulls gemma4:12b ~7.6 GB)..."
+info "Running setup-models.sh (pulls models + creates personas)..."
 OLLAMA_HOST="http://127.0.0.1:$OLLAMA_PORT" bash "$NIXOS_DIR/scripts/setup-models.sh"
+
+# ── 8. Configure Open WebUI ───────────────────────────────────────────────────
+info "Waiting for Open WebUI to come up..."
+until curl -sf --connect-timeout 3 "http://127.0.0.1:$WEBUI_PORT/api/version" >/dev/null 2>&1; do
+    sleep 3
+done
+ok "Open WebUI is up"
+
+# Detect Kali IP (the machine that runs deploy.sh / fetch-proxy)
+KALI_IP="${KALI_IP:-}"
+if [[ -z "$KALI_IP" ]]; then
+    warn "KALI_IP not set — skipping Open WebUI auto-configuration."
+    warn "Run manually: bash $NIXOS_DIR/scripts/setup-openwebui.sh <KALI_IP>"
+else
+    info "Configuring Open WebUI (filter + workspace model)..."
+    bash "$NIXOS_DIR/scripts/setup-openwebui.sh" "$KALI_IP" "$WEBUI_PORT"
+fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
@@ -208,12 +227,17 @@ echo ""
 echo -e "  Open WebUI  →  ${C}http://localhost:$WEBUI_PORT${N}"
 echo -e "  Ollama API  →  ${C}http://127.0.0.1:$OLLAMA_PORT${N}"
 echo ""
+echo -e "  Model with live browsing: ${C}qwen3-sec${N} in Open WebUI"
 echo -e "  Shell aliases (after opening a new terminal):"
-echo -e "    ${C}llm-assist${N}  →  chat with gemma (general)"
-echo -e "    ${C}llm-sec${N}     →  offsec persona  (pull qwen2.5-coder:14b first)"
-echo -e "    ${C}llm-analyst${N} →  analyst persona (pull phi4:14b first)"
+echo -e "    ${C}llm-assist${N}  →  gemma (general assistant)"
 echo -e "    ${C}gpu${N}         →  nvtop"
 echo -e "    ${C}vram${N}        →  VRAM usage"
+echo ""
+if [[ -z "${KALI_IP:-}" ]]; then
+    echo -e "  ${Y}!${N}  Run on Kali to finish OW setup:"
+    echo -e "      ${C}KALI_IP=<kali-ip> bash bootstrap.sh${N}"
+    echo -e "    or: ${C}bash $NIXOS_DIR/scripts/setup-openwebui.sh <KALI_IP>${N}"
+fi
 echo ""
 warn "Reboot recommended so the NVIDIA kernel module activates fully."
 echo ""
