@@ -2,7 +2,16 @@
 
 Local LLM lab on NixOS. Ollama + Open WebUI, CUDA-accelerated, models stored on a secondary NTFS disk.
 
-**Stack:** NixOS 25.05 · Ollama (CUDA) · Open WebUI · gemma4:12b · nomic-embed-text (RAG)
+**Stack:** NixOS 25.05 · Ollama (CUDA) · Open WebUI · qwen3:14b · gemma4:12b · nomic-embed-text (RAG)
+
+---
+
+## Features
+
+- **`qwen3-sec`** — offensive security assistant (qwen3:14b) with **live web browsing**: paste any URL and the model fetches the page, including JS-rendered SPAs (React/Vue), and answers from the live content
+- **`gemma`** — general assistant (gemma4:12b)
+- Local RAG via `nomic-embed-text` — upload docs, chat with them, nothing leaves the machine
+- DuckDuckGo web search built in
 
 ---
 
@@ -11,7 +20,7 @@ Local LLM lab on NixOS. Ollama + Open WebUI, CUDA-accelerated, models stored on 
 - NixOS 25.05+
 - NVIDIA Ampere GPU (RTX 3000 series or newer), 12 GB VRAM recommended
 - Secondary disk for model storage (NTFS, ~50 GB free) — referred to as `discoD`
-- Internet connection for the initial model download (~8 GB)
+- Internet connection for the initial model download (~35 GB total for both models)
 
 ---
 
@@ -30,7 +39,8 @@ The script will:
 4. Patch your `configuration.nix` (adds the import + disk mount)
 5. Run `nixos-rebuild switch`
 6. Set up home-manager shell config for your user
-7. Pull `nomic-embed-text` (RAG embeddings) + `gemma4:12b` and create the `gemma` persona
+7. Pull `nomic-embed-text` + `gemma4:12b` + `qwen3:14b` and create personas
+8. Configure Open WebUI: deploy the URL Fetcher Filter and create the `qwen3-sec` workspace model
 
 If your discoD UUID is known:
 ```bash
@@ -70,26 +80,34 @@ Shell aliases (available after opening a new terminal):
 
 ```
 llm-assist   # gemma4:12b — general assistant
-llm-sec      # offsec persona (pull qwen2.5-coder:14b first)
-llm-analyst  # analyst persona (pull phi4:14b first)
-llm-rp       # roleplay persona (pull mistral-nemo:12b first)
 gpu          # nvtop
 vram         # VRAM usage snapshot
 ```
 
 ---
 
+## Live web browsing (qwen3-sec)
+
+Select **`qwen3-sec`** in Open WebUI and paste any URL in your message. The URL Fetcher Filter intercepts the request, launches Chromium headlessly, waits for the page to fully render, and injects the live content into the model's context before it replies.
+
+Works on JS-heavy SPAs — React, Vue, etc. — not just static HTML.
+
+**Example:**
+```
+fetch https://hackerone.com/databricks/thanks and list the top 5 hackers with rep scores
+```
+
+The filter uses `CHROMIUM_PATH` from the environment (set to `${pkgs.chromium}/bin/chromium` in `open-webui.nix`). This is activated by `nixos-rebuild switch` — the bootstrap handles this automatically. If you pull the repo after a fresh NixOS install and add it manually, run `sudo nixos-rebuild switch` once to wire it up.
+
+---
+
 ## Pulling extra models
 
 ```bash
-OLLAMA_HOST=http://127.0.0.1:11500 ollama pull qwen2.5-coder:14b
-OLLAMA_HOST=http://127.0.0.1:11500 ollama pull phi4:14b
-OLLAMA_HOST=http://127.0.0.1:11500 ollama pull mistral-nemo:12b
+OLLAMA_HOST=http://127.0.0.1:11500 ollama pull <model>
 
-# Create personas after pulling
-ollama create offsec   -f /etc/nixos/modelfiles/offsec.Modelfile
-ollama create analyst  -f /etc/nixos/modelfiles/phi4.Modelfile
-ollama create roleplay -f /etc/nixos/modelfiles/roleplay.Modelfile
+# Re-create personas if needed
+bash /etc/nixos/scripts/setup-models.sh
 ```
 
 ---
@@ -108,17 +126,17 @@ Embeddings run locally via `nomic-embed-text` through Ollama — nothing leaves 
 
 ## Updating config
 
-Edit files in this repo, then redeploy:
+Edit files in this repo, then either:
 
 ```bash
-# On Kali VM
+# Option A — from Kali VM (serves files, prints command to run on NixOS)
 bash deploy.sh
 
-# On NixOS (command printed by deploy.sh)
-bash <(curl -fsSL http://<KALI_IP>:9876/scripts/install.sh) <KALI_IP>
+# Option B — directly on NixOS
+sudo cp -r modules openwebui modelfiles scripts /etc/nixos/
+sudo nixos-rebuild switch
+bash /etc/nixos/scripts/setup-openwebui.sh
 ```
-
-Or manually copy changed files to `/etc/nixos/` and run `sudo nixos-rebuild switch`.
 
 ---
 
@@ -126,21 +144,25 @@ Or manually copy changed files to `/etc/nixos/` and run `sudo nixos-rebuild swit
 
 ```
 bootstrap.sh                  ← run this on fresh NixOS
+deploy.sh                     ← serve config files from Kali to NixOS
 modules/
-  llm-lab.nix                 ← top-level import (nvidia + ollama + open-webui)
+  llm-lab.nix                 ← top-level import (nvidia + ollama + open-webui + playwright)
   nvidia.nix                  ← CUDA package overrides
   ollama.nix                  ← Ollama service config (port 11500, discoD storage)
-  open-webui.nix              ← Open WebUI (port 8888, local RAG)
+  open-webui.nix              ← Open WebUI (port 8888, CHROMIUM_PATH, playwright env)
+  playwright.nix              ← playwright-server sidecar (port 13000)
+openwebui/
+  url-fetcher-filter.py       ← Open WebUI filter: JS-rendered URL fetching via Chromium
 modelfiles/
   gemma4.Modelfile            ← general assistant persona
-  offsec.Modelfile            ← offensive security persona
-  phi4.Modelfile              ← analyst persona
+  qwen3.Modelfile             ← qwen3-sec offsec persona
+  offsec.Modelfile            ← (legacy) offsec persona
   roleplay.Modelfile          ← roleplay persona
 home-manager/
-  terminal.nix                ← zsh + starship + LLM aliases
+  terminal.nix                ← zsh + starship + aliases
 scripts/
   setup-models.sh             ← pull base models + create personas
-  start.sh                    ← manual service start (if not using systemd)
+  setup-openwebui.sh          ← deploy URL Fetcher Filter + create qwen3-sec workspace model
   install.sh                  ← used by deploy.sh (Kali → NixOS push)
-deploy.sh                     ← run on Kali VM to push config changes
+  start.sh                    ← manual service start (if not using systemd)
 ```
