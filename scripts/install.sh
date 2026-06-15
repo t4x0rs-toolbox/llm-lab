@@ -228,7 +228,7 @@ until curl -sf --connect-timeout 3 "http://127.0.0.1:${WEBUI_PORT}/api/version" 
 done
 ok "Open WebUI is up"
 
-bash "${SCRIPTS_DEST}/setup-openwebui.sh" "${KALI_IP}" "${WEBUI_PORT}"
+bash "${SCRIPTS_DEST}/setup-openwebui.sh" "${WEBUI_PORT}"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 banner "INSTALLATION COMPLETE"
@@ -241,9 +241,6 @@ echo -e "  ${B}Model:${N}   select ${C}qwen3-sec${N} for live browsing + offsec 
 echo ""
 echo -e "  ${B}Quick start (after reboot):${N}"
 echo -e "    ${C}bash ${SCRIPTS_DEST}/start.sh${N}"
-echo ""
-echo -e "  ${B}Fetch proxy (must run on Kali):${N}"
-echo -e "    ${C}systemctl --user status llm-fetch-proxy${N}"
 echo ""
 warn "Reboot recommended — NVIDIA kernel module needs it to become active."
 warn "After reboot, CUDA acceleration will kick in automatically."

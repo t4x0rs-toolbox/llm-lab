@@ -18,7 +18,6 @@ set -euo pipefail
 
 NIXOS_IP="${1:-192.168.1.102}"
 SERVE_PORT=9876
-PROXY_PORT=9879
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # ── Colors ────────────────────────────────────────────────────────────────────
@@ -62,46 +61,11 @@ ok "NixOS IP : $NIXOS_IP"
 ok "Serve dir: $SCRIPT_DIR"
 ok "Port     : $SERVE_PORT"
 
-# ── Firewall: open ports temporarily if nftables active ──────────────────────
-open_port() {
-    local port="$1"
-    if command -v nft &>/dev/null 2>&1; then
-        sudo nft add rule inet filter input tcp dport "$port" accept 2>/dev/null \
-            && info "Port $port opened in nftables" \
-            || true
-    fi
-}
-open_port "$SERVE_PORT"
-open_port "$PROXY_PORT"
-
-# ── Fetch-proxy: install and start Kali Chromium fetch service ────────────────
-info "Setting up llm-fetch-proxy (Chromium 131 URL fetcher for Open WebUI)..."
-
-PROXY_SCRIPT="$SCRIPT_DIR/scripts/fetch-proxy.py"
-SERVICE_FILE="$SCRIPT_DIR/systemd/llm-fetch-proxy.service"
-SERVICE_DEST="$HOME/.config/systemd/user/llm-fetch-proxy.service"
-
-if [[ ! -f "$PROXY_SCRIPT" ]]; then
-    err "fetch-proxy.py not found at $PROXY_SCRIPT"
-    exit 1
-fi
-
-mkdir -p "$HOME/.config/systemd/user"
-cp "$SERVICE_FILE" "$SERVICE_DEST"
-
-# Enable linger so user service starts at boot (needs sudo; non-fatal if it fails)
-loginctl enable-linger "$(whoami)" 2>/dev/null \
-    || warn "loginctl enable-linger failed — fetch-proxy won't auto-start on boot without login"
-
-systemctl --user daemon-reload
-systemctl --user enable llm-fetch-proxy.service
-systemctl --user restart llm-fetch-proxy.service
-
-if systemctl --user is-active --quiet llm-fetch-proxy.service; then
-    ok "llm-fetch-proxy running on port $PROXY_PORT"
-else
-    warn "llm-fetch-proxy failed to start:"
-    systemctl --user status llm-fetch-proxy.service --no-pager | tail -5 || true
+# ── Firewall: open serve port temporarily if nftables active ─────────────────
+if command -v nft &>/dev/null 2>&1; then
+    sudo nft add rule inet filter input tcp dport "$SERVE_PORT" accept 2>/dev/null \
+        && info "Port $SERVE_PORT opened in nftables" \
+        || true
 fi
 
 # ── Start HTTP server ─────────────────────────────────────────────────────────

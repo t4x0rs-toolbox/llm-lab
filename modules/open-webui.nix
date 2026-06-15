@@ -38,6 +38,10 @@ in
       PYTHONPATH                   = "${pythonWithPlaywright}/lib/${pythonWithPlaywright.python.libPrefix}/site-packages";
       PLAYWRIGHT_BROWSERS_PATH     = "${pkgs.playwright-driver.browsers}";
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1";
+
+      # System Chromium for the URL Fetcher Filter — newer than playwright-driver's
+      # bundled browser, passes Cloudflare TLS/bot checks more reliably.
+      CHROMIUM_PATH = "${pkgs.chromium}/bin/chromium";
     };
   };
 }

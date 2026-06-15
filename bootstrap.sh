@@ -208,15 +208,8 @@ until curl -sf --connect-timeout 3 "http://127.0.0.1:$WEBUI_PORT/api/version" >/
 done
 ok "Open WebUI is up"
 
-# Detect Kali IP (the machine that runs deploy.sh / fetch-proxy)
-KALI_IP="${KALI_IP:-}"
-if [[ -z "$KALI_IP" ]]; then
-    warn "KALI_IP not set — skipping Open WebUI auto-configuration."
-    warn "Run manually: bash $NIXOS_DIR/scripts/setup-openwebui.sh <KALI_IP>"
-else
-    info "Configuring Open WebUI (filter + workspace model)..."
-    bash "$NIXOS_DIR/scripts/setup-openwebui.sh" "$KALI_IP" "$WEBUI_PORT"
-fi
+info "Configuring Open WebUI (filter + workspace model)..."
+bash "$NIXOS_DIR/scripts/setup-openwebui.sh" "$WEBUI_PORT"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
@@ -233,11 +226,6 @@ echo -e "    ${C}llm-assist${N}  →  gemma (general assistant)"
 echo -e "    ${C}gpu${N}         →  nvtop"
 echo -e "    ${C}vram${N}        →  VRAM usage"
 echo ""
-if [[ -z "${KALI_IP:-}" ]]; then
-    echo -e "  ${Y}!${N}  Run on Kali to finish OW setup:"
-    echo -e "      ${C}KALI_IP=<kali-ip> bash bootstrap.sh${N}"
-    echo -e "    or: ${C}bash $NIXOS_DIR/scripts/setup-openwebui.sh <KALI_IP>${N}"
-fi
 echo ""
 warn "Reboot recommended so the NVIDIA kernel module activates fully."
 echo ""
